@@ -1,5 +1,3 @@
-![deepseek_mermaid_20260310_6b9c42](https://github.com/user-attachments/assets/a467d1ad-3866-43a1-87de-c50e3ab1c048)# Northwind Sales ETL Data Engineering Pipeline
-
 A comprehensive ETL (Extract, Transform, Load) pipeline that transforms the classic Northwind Sales dataset from flat CSV files into a structured Data Warehouse (Star Schema) using PostgreSQL and Apache Airflow.
 
 Side Note: This project was built using the Northwind dataset from Kaggle as a sample sales database.
@@ -102,14 +100,7 @@ The proposed solution is to build an end-to-end ETL pipeline with the following 
 
 ## 🔧 System Architecture
 
-The project architecture will follow this flow:
-graph TD
-    A[CSV Files<br/>Orders, Products, Customers...] --> B[Extraction Layer<br/>Python/Pandas]
-    B --> C[(Bronze Layer<br/>PostgreSQL<br/>Raw Tables)]
-    C --> D[Cleaning Layer<br/>Python/Pandas]
-    D --> E[(Silver Layer<br/>PostgreSQL<br/>Cleaned Tables)]
-    E --> F[Modeling Layer<br/>Python/SQL]
-    F --> G[(Gold Layer<br/>PostgreSQL<br/>Star Schema)]
+![deepseek_mermaid_20260310_6b9c42](https://github.com/user-attachments/assets/a467d1ad-3866-43a1-87de-c50e3ab1c048)# Northwind Sales ETL Data Engineering Pipeline
     
     H[Apache Airflow<br/>Orchestration] -.-> B
     H -.-> D
