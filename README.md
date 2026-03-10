@@ -102,29 +102,18 @@ The proposed solution is to build an end-to-end ETL pipeline with the following 
 
 ![deepseek_mermaid_20260310_6b9c42](https://github.com/user-attachments/assets/a467d1ad-3866-43a1-87de-c50e3ab1c048)# Northwind Sales ETL Data Engineering Pipeline
     
-    H[Apache Airflow<br/>Orchestration] -.-> B
-    H -.-> D
-    H -.-> F
-    
-    style C fill:#cd7f32,color:white
-    style E fill:#c0c0c0,color:black
-    style G fill:#ffd700,color:black
+### Data Flow Description
 
-
-
-```
-Multiple Flat Files (CSVs)  
-    ↓  
-Extraction Layer (Python)  
-    ↓  
-Staging Tables (PostgreSQL)  
-    ↓  
-Transformation Layer (SQL/Python)  
-    ↓  
-Data Warehouse (PostgreSQL - Star Schema)  
-    ↓  
-Airflow for Orchestration & Monitoring
-```
+| Step | Layer | Technology | Description |
+|------|-------|------------|-------------|
+| 1 | Source | CSV Files | Raw Northwind dataset files |
+| 2 | Extract | Python/Pandas | Read CSVs and load to Bronze |
+| 3 | Bronze 🥉 | PostgreSQL | Raw data as-is, no transformations |
+| 4 | Clean | Python/Pandas | Data cleaning, type conversion, deduplication |
+| 5 | Silver 🥈 | PostgreSQL | Cleaned and validated data |
+| 6 | Model | Python/SQL | Star schema transformations |
+| 7 | Gold 🥇 | PostgreSQL | Business-ready star schema |
+| 8 | Orchestrate | Apache Airflow | Schedule, monitor, and manage all tasks |
 
 ## 🧪 Tools and Technologies
 
