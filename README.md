@@ -1,3 +1,5 @@
+# Northwind Sales ETL Data Engineering Pipeline
+
 A comprehensive ETL (Extract, Transform, Load) pipeline that transforms the classic Northwind Sales dataset from flat CSV files into a structured Data Warehouse (Star Schema) using PostgreSQL and Apache Airflow.
 
 Side Note: This project was built using the Northwind dataset from Kaggle as a sample sales database.
