@@ -23,6 +23,7 @@ services:
                                                           # - DAG runs history
                                                           # - Task instances
                                                           # - Connections/variables
+      - ${SQL_SCRIPTS_VOLUME}:/scripts  # Mount SQL scripts here
     networks:
       - data-net                                           # Attaches to internal network
     healthcheck:
