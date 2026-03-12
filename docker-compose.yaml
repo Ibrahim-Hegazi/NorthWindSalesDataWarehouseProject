@@ -143,7 +143,7 @@ services:
       - ${DEV_CODE_VOLUME}:/opt/airflow/dev_code  # Mount code here!
       - ./data:/data                       # Mount data too!
       - pip-cache:/home/airflow/.cache/pip  # Cache pip downloads
-      - pip-packages:/home/airflow/.local/lib/python3.11/site-packages  # Persist installed packages
+      # - pip-packages:/home/airflow/.local/lib/python3.11/site-packages  # Persist installed packages
     depends_on:
       postgres-airflow:
         condition: service_healthy                         # Wait for PostgreSQL
@@ -194,7 +194,7 @@ services:
       - ${DEV_CODE_VOLUME}:/opt/airflow/dev_code  # Mount code here!
       - ./data:/data                      # Mount data too!
       - pip-cache:/home/airflow/.cache/pip
-      - pip-packages:/home/airflow/.local/lib/python3.11/site-packages
+      # - pip-packages:/home/airflow/.local/lib/python3.11/site-packages
     depends_on:
       postgres-airflow:
         condition: service_healthy
@@ -230,7 +230,7 @@ services:
       - ${DEV_CODE_VOLUME}:/opt/airflow/dev_code
       - ./data:/data
       - pip-cache:/home/airflow/.cache/pip
-      - pip-packages:/home/airflow/.local/lib/python3.11/site-packages
+      # - pip-packages:/home/airflow/.local/lib/python3.11/site-packages
       # Optional: Add data directory if tasks need to read/write files
       # - ./data:/opt/airflow/data                         # For task I/O
     depends_on:
@@ -384,15 +384,26 @@ services:
       - ./data:/home/jovyan/data                          # INPUT/OUTPUT: Data files
                                                           # Location on host: ./data/
                                                           # Read CSV/Parquet, write results
+      - pip-cache:/home/jovyan/.cache/pip           
+      # - pip-packages:/home/jovyan/.local/lib/python3.11/site-packages  # We will remove the packages persistence cause of the permission nightmares
     environment:
       - JUPYTER_ENABLE_LAB=yes                             # Enable Jupyter Lab interface
       - JUPYTER_TOKEN=${JUPYTER_TOKEN}                     # Access token from .env
       - PYSPARK_SUBMIT_ARGS=--packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.4.1 pyspark-shell  # Kafka integration
+      - COMMON_PACKAGES=${COMMON_PYTHON_PACKAGES}    
     depends_on:
       - broker                                             # Wait for Kafka
       - schema-registry                                    # Wait for schema registry
     networks:
       - data-net
+    command: >
+      bash -c "
+      echo 'Installing common packages...' &&
+      echo 'Packages to install: $${COMMON_PACKAGES}' &&  
+      pip install --user --no-cache-dir $${COMMON_PACKAGES} --upgrade-strategy only-if-needed &&
+      echo '✅ Common packages installed' &&
+      start-notebook.sh
+      "
 
 # ============================================================================
 # NETWORK CONFIGURATION
