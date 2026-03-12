@@ -89,9 +89,9 @@ services:
       - ${PGADMIN_VOLUME}:/var/lib/pgadmin                # INPUT/OUTPUT: Stores pgAdmin settings
                                                           # Location on host: ./pgadmin/
                                                           # Stores saved server connections
-      # Optional mounts for data import (add if needed):
-      # - ./data:/data                                     # To import CSV files
-      # - ./postgres/backups:/backups                      # For SQL backups
+      - ${SQL_SCRIPTS_VOLUME}:/scripts 
+      - ./data:/data                                     # To import CSV files Manually
+      - ./postgres/backups:/backups                      # For SQL backups from the PgAdmin to your local machine
     depends_on:
       - postgres-airflow                                   # Wait for Airflow DB
       - postgres-app                                       # Wait for App DB
@@ -140,9 +140,8 @@ services:
                                                           # Location on host: ./airflow/scripts/
                                                           # Can be imported by DAGs
       
-      - ${SPARK_JOBS_VOLUME}:/opt/airflow/spark_jobs      # INPUT/OUTPUT: Spark job files
-                                                          # Location on host: ./spark_jobs/
-                                                          # Airflow can submit these to Spark
+      - ${DEV_CODE_VOLUME}:/opt/airflow/dev_code  # Mount code here!
+      - ./data:/data                       # Mount data too!
       - pip-cache:/home/airflow/.cache/pip  # Cache pip downloads
       - pip-packages:/home/airflow/.local/lib/python3.11/site-packages  # Persist installed packages
     depends_on:
@@ -192,7 +191,8 @@ services:
       - ${AIRFLOW_LOGS_VOLUME}:/opt/airflow/logs          # OUTPUT: Scheduler logs
       - ${AIRFLOW_PLUGINS_VOLUME}:/opt/airflow/plugins    # INPUT: Plugins for scheduling
       - ${AIRFLOW_SCRIPTS_VOLUME}:/opt/airflow/scripts    # INPUT: Helper scripts
-      - ${SPARK_JOBS_VOLUME}:/opt/airflow/spark_jobs      # INPUT: Spark jobs to schedule
+      - ${DEV_CODE_VOLUME}:/opt/airflow/dev_code  # Mount code here!
+      - ./data:/data                      # Mount data too!
       - pip-cache:/home/airflow/.cache/pip
       - pip-packages:/home/airflow/.local/lib/python3.11/site-packages
     depends_on:
@@ -227,11 +227,12 @@ services:
       - ${AIRFLOW_LOGS_VOLUME}:/opt/airflow/logs          # OUTPUT: Task execution logs
       - ${AIRFLOW_PLUGINS_VOLUME}:/opt/airflow/plugins    # INPUT: Plugins for tasks
       - ${AIRFLOW_SCRIPTS_VOLUME}:/opt/airflow/scripts    # INPUT: Scripts used by tasks
-      - ${SPARK_JOBS_VOLUME}:/opt/airflow/spark_jobs      # INPUT/OUTPUT: Spark job files
+      - ${DEV_CODE_VOLUME}:/opt/airflow/dev_code
+      - ./data:/data
       - pip-cache:/home/airflow/.cache/pip
       - pip-packages:/home/airflow/.local/lib/python3.11/site-packages
       # Optional: Add data directory if tasks need to read/write files
-      # - ${DATA_VOLUME}:/opt/airflow/data                 # For task I/O
+      # - ./data:/opt/airflow/data                         # For task I/O
     depends_on:
       postgres-airflow:
         condition: service_healthy
@@ -363,31 +364,26 @@ services:
   # DEVELOPMENT ENVIRONMENTS
   # ============================================================================
   
-  pyspark-dev:
-    image: ${PYSPARK_IMAGE}                               # Jupyter with PySpark
-    container_name: pyspark-dev                            # Fixed container name
+  python-dev:                                             # It includes PySpark and Jupyter for development
+    image: ${DEV_IMAGE}                                   # Jupyter with PySpark
+    container_name: python-dev                            # Fixed container name
     ports:
       - "${JUPYTER_PORT}:8888"                             # Maps Jupyter Lab to host
                                                           # Access: http://localhost:8888?token=devtoken
       - "${SPARK_UI_PORT}:4040"                            # Maps Spark UI to host
                                                           # Access: http://localhost:4040
     volumes:
-      - ${PYSPARK_CODE_VOLUME}:/home/jovyan/work          # INPUT/OUTPUT: Jupyter notebooks
-                                                          # Location on host: ./pyspark_code/
-                                                          # Save notebooks here for persistence
+      - ${DEV_CODE_VOLUME}:/home/jovyan/work              # INPUT/OUTPUT: Jupyter notebooks and Python code
+                                                          # Location on host: ./dev_code/
+                                                          # Save notebooks and Python modules here for persistence
       
       - ${CHECKPOINT_VOLUME}:/home/jovyan/checkpoint      # INPUT/OUTPUT: Spark streaming checkpoints
                                                           # Location on host: ./checkpoint/
                                                           # Critical for streaming recovery
       
-      - ${DATA_VOLUME}:/home/jovyan/data                   # INPUT/OUTPUT: Data files
+      - ./data:/home/jovyan/data                          # INPUT/OUTPUT: Data files
                                                           # Location on host: ./data/
                                                           # Read CSV/Parquet, write results
-                                                          # Shared with python-dev
-      
-      - ${SPARK_JOBS_VOLUME}:/home/jovyan/spark_jobs       # INPUT/OUTPUT: Spark job scripts
-                                                          # Location on host: ./spark_jobs/
-                                                          # Develop here, deploy to Airflow
     environment:
       - JUPYTER_ENABLE_LAB=yes                             # Enable Jupyter Lab interface
       - JUPYTER_TOKEN=${JUPYTER_TOKEN}                     # Access token from .env
@@ -395,51 +391,6 @@ services:
     depends_on:
       - broker                                             # Wait for Kafka
       - schema-registry                                    # Wait for schema registry
-    networks:
-      - data-net
-
-  python-dev:
-    image: ${PYTHON_IMAGE}                                 # Lightweight Python
-    container_name: python-dev                              # Fixed container name
-    volumes:
-      - ${PYTHON_CODE_VOLUME}:/app                         # INPUT/OUTPUT: Python code
-                                                          # Location on host: ./python_code/
-                                                          # Write FastAPI apps, utilities
-      
-      - ${DATA_VOLUME}:/data                               # INPUT/OUTPUT: Data files
-                                                          # Location on host: ./data/
-                                                          # Shared with pyspark-dev
-    working_dir: /app                                       # Default working directory
-    command: >
-      bash -c "
-      apt-get update &&
-      apt-get install -y curl wget gcc g++ &&              # Install build tools
-      pip install --upgrade pip &&
-      pip install pyspark==3.4.1 pandas numpy confluent-kafka fastapi uvicorn sqlalchemy &&  # Install packages
-      tail -f /dev/null                                    # Keep container running
-      "
-    depends_on:
-      - broker                                             # Wait for Kafka (if using)
-    networks:
-      - data-net
-
-  data-generator:
-    image: ${PYTHON_IMAGE}                                 # Python for generating data
-    container_name: data-generator                          # Fixed container name
-    volumes:
-      - ${GENERATOR_VOLUME}:/app                           # INPUT: Data generator scripts
-                                                          # Location on host: ./generators/
-                                                          # Write Python scripts that generate test data
-    working_dir: /app                                       # Working directory
-    command: >
-      bash -c "
-      apt-get update &&
-      apt-get install -y curl wget gcc g++ &&              # Install build tools
-      pip install confluent-kafka faker pandas numpy &&    # Install generator packages
-      tail -f /dev/null                                    # Keep container running
-      "
-    depends_on:
-      - broker                                             # Wait for Kafka to send data to
     networks:
       - data-net
 
@@ -453,10 +404,8 @@ networks:
                                                           # Allows containers to find each other by hostname
                                                           # All services on this network can communicate
 
-
-
 # ============================================================================
-# VOLUME CONFIGURATION FOR THE AIRFLOW-WEBSERVICE PERSISTENCE OF PACKAGES
+# VOLUME CONFIGURATION FOR AIRFLOW PERSISTENCE OF PACKAGES
 # ============================================================================
 
 volumes:
